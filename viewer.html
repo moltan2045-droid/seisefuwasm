@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>九州南北朝戦記 (Rust Generated)</title>
+    <style>
+        body { background: #333; color: white; text-align: center; font-family: sans-serif; }
+        canvas { background: #81d4fa; border: 4px solid #555; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .info { margin: 20px; padding: 10px; background: rgba(0,0,0,0.5); display: inline-block; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>九州南北朝戦記 <small>(Rust Engine)</small></h1>
+    <div class="info" id="status">Loading data...</div>
+    <br>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script>
+        const HEX_SIZE = 30;
+        const OFFSET_X = 400;
+        const OFFSET_Y = 250;
+
+        function hexToPixel(q, r) {
+            const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r) + OFFSET_X;
+            const y = HEX_SIZE * (3 / 2 * r) + OFFSET_Y;
+            return { x, y };
+        }
+
+        function drawHex(ctx, q, r, color, label) {
+            const { x, y } = hexToPixel(q, r);
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (2 * Math.PI / 6) * (i + 0.5);
+                const px = x + HEX_SIZE * Math.cos(angle);
+                const py = y + HEX_SIZE * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.1)";
+            ctx.stroke();
+
+            if (label) {
+                ctx.fillStyle = "black";
+                ctx.font = "bold 12px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(label, x, y + 5);
+            }
+        }
+
+        async function init() {
+            try {
+                // データの読み込み (Rustが生成したファイル)
+                const response = await fetch('game_snapshot.json');
+                const data = await response.json();
+                
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                document.getElementById('status').innerText = `${data.year}年 - 九州戦線`;
+
+                // 地形の描画
+                data.tiles.forEach(tile => {
+                    let color = "#aed581"; // plain
+                    if (tile.terrain === "yamaguchi") color = "#ffcc80";
+                    if (tile.terrain === "island") color = "#dce775";
+                    drawHex(ctx, tile.q, tile.r, color);
+                });
+
+                // ユニットの描画
+                data.units.forEach(unit => {
+                    const color = unit.faction === "South" ? "#ef5350" : "#42a5f5";
+                    drawHex(ctx, unit.q, unit.r, color, unit.name.substring(0, 1));
+                    
+                    // 名前ラベル
+                    const { x, y } = hexToPixel(unit.q, unit.r);
+                    ctx.fillStyle = "white";
+                    ctx.fillText(unit.name, x, y - 25);
+                });
+
+                console.log("Rendered!");
+            } catch (e) {
+                document.getElementById('status').innerText = "Error: JSON file not found. Run 'cargo run' first.";
+                console.error(e);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+use std::io::{self, stdout, Write};
+use crossterm::{
+    execute, terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, enable_raw_mode, disable_raw_mode},
+    event::{self, Event, KeyCode},
+    cursor::{self, MoveTo},
+    style::{self, Color, Print, SetForegroundColor, SetBackgroundColor, ResetColor},
+};
+
+// --- データ構造 ---
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Faction { South, North, Independent }
+
+#[derive(Clone, Debug)]
+struct Unit {
+    name: String,
+    faction: Faction,
+    q: i32,
+    r: i32,
+    hp: i32,
+    max_hp: i32,
+    atk: i32,
+    has_acted: bool,
+}
+
+struct GameState {
+    units: Vec<Unit>,
+    cursor_q: i32,
+    cursor_r: i32,
+    selected_unit_idx: Option<usize>,
+    year: i32,
+    turn: Faction,
+    log: String,
+}
+
+// --- 地形判定 ---
+
+fn is_land(q: i32, r: i32) -> bool {
+    match r {
+        -4 => q >= 5 && q <= 6,   // 山口北部
+        -3 => q >= 4 && q <= 5,   // 山口 (赤間関)
+        -2 => q >= 2 && q <= 4,   // 対馬・壱岐
+        -1 => false,              // ★関門海峡 (常に海)
+        0 => q >= 3 && q <= 6,    // 北九州 (博多・大宰府)
+        1 => q >= 1 && q <= 7,    // 肥前・筑後・豊後
+        2 => q >= 1 && q <= 6,    // 肥後
+        3 => q >= 1 && q <= 5,    // 肥後南部
+        4 => q >= 1 && q <= 5,    // 薩摩・大隅
+        5 => q >= 1 && q <= 4,    // 薩摩
+        6 => q >= 2 && q <= 3,    // 南端
+        _ => false,
+    }
+}
+
+// --- 描画ロジック ---
+
+fn draw_game(state: &GameState) -> io::Result<()> {
+    let mut out = stdout();
+    execute!(out, Clear(ClearType::All), MoveTo(0, 0))?;
+    
+    execute!(out, Print(format!("九州南北朝戦記 - {}年 [{:?}ターン]\n", state.year, state.turn)))?;
+    execute!(out, Print(format!("ログ: {}\n", state.log)))?;
+    execute!(out, Print("--------------------------------------------------\n"))?;
+
+    for r in -4..=7 {
+        execute!(out, Print(format!("{:2} ", r)))?;
+        if r % 2 != 0 { execute!(out, Print("  "))?; }
+
+        for q in -2..=8 {
+            let is_cursor = q == state.cursor_q && r == state.cursor_r;
+            let unit = state.units.iter().find(|u| u.q == q && u.r == r);
+            let is_selected = if let Some(idx) = state.selected_unit_idx {
+                state.units[idx].q == q && state.units[idx].r == r
+            } else { false };
+
+            // 背景色の決定
+            if is_cursor {
+                execute!(out, SetBackgroundColor(Color::White))?;
+            } else if is_selected {
+                execute!(out, SetBackgroundColor(Color::Yellow))?;
+            } else if is_land(q, r) {
+                execute!(out, SetBackgroundColor(Color::DarkGreen))?;
+            } else {
+                execute!(out, SetBackgroundColor(Color::DarkBlue))?;
+            }
+
+            // 文字の決定
+            if let Some(u) = unit {
+                let color = match u.faction {
+                    Faction::South => Color::Red,
+                    Faction::North => Color::Blue,
+                    Faction::Independent => Color::Yellow,
+                };
+                execute!(out, SetForegroundColor(color), Print(format!("[{}]", &u.name[..3])))?;
+            } else {
+                execute!(out, SetForegroundColor(Color::Black), Print(" . "))?;
+            }
+
+            execute!(out, ResetColor)?;
+            execute!(out, Print(" "))?;
+        }
+        execute!(out, Print("\n"))?;
+    }
+    
+    execute!(out, Print("--------------------------------------------------\n"))?;
+    execute!(out, Print("操作: 矢印キーで移動, Enterで選択/行動, Tでターン終了, Qで終了\n"))?;
+    
+    out.flush()?;
+    Ok(())
+}
+
+fn main() -> io::Result<()> {
+    enable_raw_mode()?;
+    let mut out = stdout();
+    execute!(out, EnterAlternateScreen, cursor::Hide)?;
+
+    let mut state = GameState {
+        units: vec![
+            Unit { name: "懐良親王".into(), faction: Faction::South, q: 4, r: 0, hp: 80, max_hp: 80, atk: 15, has_acted: false },
+            Unit { name: "今川了俊".into(), faction: Faction::North, q: 4, r: -3, hp: 70, max_hp: 70, atk: 20, has_acted: false },
+            Unit { name: "菊池武光".into(), faction: Faction::South, q: 3, r: 2, hp: 100, max_hp: 100, atk: 35, has_acted: false },
+            Unit { name: "島津氏久".into(), faction: Faction::Independent, q: 1, r: 5, hp: 80, max_hp: 80, atk: 25, has_acted: false },
+        ],
+        cursor_q: 4,
+        cursor_r: 0,
+        selected_unit_idx: None,
+        year: 1338,
+        turn: Faction::South,
+        log: "南朝軍のターンです。懐良親王を指揮してください。".into(),
+    };
+
+    loop {
+        draw_game(&state)?;
+
+        if let Event::Key(key_event) = event::read()? {
+            match key_event.code {
+                KeyCode::Up => state.cursor_r -= 1,
+                KeyCode::Down => state.cursor_r += 1,
+                KeyCode::Left => state.cursor_q -= 1,
+                KeyCode::Right => state.cursor_q += 1,
+                KeyCode::Char('q') => break,
+                KeyCode::Char('t') => {
+                    state.turn = if state.turn == Faction::South { Faction::North } else { Faction::South };
+                    for u in &mut state.units { u.has_acted = false; }
+                    state.log = format!("{:?}のターンになりました。", state.turn);
+                }
+                KeyCode::Enter => {
+                    let clicked_unit_idx = state.units.iter().position(|u| u.q == state.cursor_q && u.r == state.cursor_r);
+                    
+                    if let Some(selected_idx) = state.selected_unit_idx {
+                        // 移動または攻撃
+                        let target_q = state.cursor_q;
+                        let target_r = state.cursor_r;
+                        
+                        if let Some(target_unit_idx) = clicked_unit_idx {
+                            if state.units[target_unit_idx].faction != state.units[selected_idx].faction {
+                                // 攻撃
+                                let damage = state.units[selected_idx].atk;
+                                state.units[target_unit_idx].hp -= damage;
+                                state.log = format!("{}が{}に{}ダメージ！", state.units[selected_idx].name, state.units[target_unit_idx].name, damage);
+                                if state.units[target_unit_idx].hp <= 0 {
+                                    state.log += &format!(" {}は討ち取られました！", state.units[target_unit_idx].name);
+                                    state.units.remove(target_unit_idx);
+                                }
+                                state.units[state.selected_unit_idx.unwrap()].has_acted = true;
+                                state.selected_unit_idx = None;
+                            }
+                        } else if is_land(target_q, target_r) {
+                            // 移動
+                            state.units[selected_idx].q = target_q;
+                            state.units[selected_idx].r = target_r;
+                            state.units[selected_idx].has_acted = true;
+                            state.log = format!("{}が移動しました。", state.units[selected_idx].name);
+                            state.selected_unit_idx = None;
+                        }
+                    } else if let Some(idx) = clicked_unit_idx {
+                        if state.units[idx].faction == state.turn && !state.units[idx].has_acted {
+                            state.selected_unit_idx = Some(idx);
+                            state.log = format!("{}を選択中...", state.units[idx].name);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    execute!(out, LeaveAlternateScreen, cursor::Show)?;
+    disable_raw_mode()?;
+    Ok(())
+}

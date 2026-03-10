@@ -1,0 +1,14 @@
+/home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/deps/serde-c1d1f68dd62c7da8.d: /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/build/serde-840ebb2c6da38c2f/out/private.rs
+
+/home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/deps/libserde-c1d1f68dd62c7da8.rlib: /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/build/serde-840ebb2c6da38c2f/out/private.rs
+
+/home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/deps/libserde-c1d1f68dd62c7da8.rmeta: /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/build/serde-840ebb2c6da38c2f/out/private.rs
+
+/home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/hive130/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/build/serde-840ebb2c6da38c2f/out/private.rs:
+
+# env-dep:OUT_DIR=/home/hive130/kyushu-wasm-wars/target/wasm32-unknown-unknown/release/build/serde-840ebb2c6da38c2f/out

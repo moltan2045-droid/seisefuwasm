@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>九州南北朝戦記 (Wasm)</title>
+    <style>
+        body { background: #222; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        h1 { margin-bottom: 10px; color: #f1c40f; text-shadow: 2px 2px 4px #000; }
+        canvas { border: 2px solid #555; background: #001133; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #ui { width: 800px; margin-top: 10px; padding: 15px; background: #333; border-radius: 8px; border: 1px solid #444; }
+        .status-bar { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px; }
+        .log { color: #ecf0f1; height: 3.6em; overflow-y: auto; background: #222; padding: 5px; border-radius: 4px; font-family: monospace; border: 1px solid #444; }
+        .controls { color: #bdc3c7; font-size: 0.9em; margin-top: 15px; text-align: center; line-height: 1.6; }
+        .button { background: #e67e22; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        .button:hover { background: #d35400; }
+        .south { color: #e74c3c; }
+        .north { color: #3498db; }
+    </style>
+</head>
+<body>
+    <h1>九州南北朝戦記</h1>
+    <div id="ui">
+        <div class="status-bar">
+            <div><span id="year">1338</span>年</div>
+            <div id="turn-display">ターン: <span id="turn-name" class="south">南朝</span></div>
+            <button id="end-turn-btn" class="button">ターン終了 (T)</button>
+        </div>
+        <div id="log" class="log">南朝軍のターンです。懐良親王を指揮してください。</div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="controls">
+        <b>操作:</b> 矢印キーでカーソル移動, <b>Enter</b> で選択/行動, <b>T</b> でターン終了<br>
+        ユニットを選択した後、移動先（緑）または敵（赤）を選んで Enter を押すと行動します。
+    </div>
+
+    <script type="module">
+        import init, { GameState, Faction } from './pkg/kyushu_wasm_wars.js';
+
+        async function run() {
+            await init();
+            const state = new GameState();
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const hexSize = 35;
+            const offsetX = 150;
+            const offsetY = 180;
+
+            function getHexCoords(q, r) {
+                // オフセット座標系 (Odd-q offset)
+                const x = hexSize * (3/2 * q);
+                const y = hexSize * Math.sqrt(3) * (r + (q % 2) / 2);
+                return { x: x + offsetX, y: y + offsetY };
+            }
+
+            function drawHex(q, r, color, isCursor, isSelected) {
+                const { x, y } = getHexCoords(q, r);
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = 2 * Math.PI / 6 * i;
+                    const px = x + hexSize * Math.cos(angle);
+                    const py = y + hexSize * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                if (isCursor) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                } else if (isSelected) {
+                    ctx.strokeStyle = '#f1c40f';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // マップ描画 (描画範囲を適切に設定)
+                for (let r = -6; r <= 8; r++) {
+                    for (let q = -1; q <= 8; q++) {
+                        const isLand = GameState.is_land(q, r);
+                        const isCursor = q === state.cursor_q && r === state.cursor_r;
+                        
+                        let color = isLand ? '#1e8449' : '#1a5276';
+                        drawHex(q, r, color, isCursor, false);
+                    }
+                }
+
+                // ユニット描画
+                const unitCount = state.get_unit_count();
+                for (let i = 0; i < unitCount; i++) {
+                    const q = state.get_unit_q(i);
+                    const r = state.get_unit_r(i);
+                    const name = state.get_unit_name(i);
+                    const faction = state.get_unit_faction(i);
+                    const isSelected = state.is_selected_unit(i);
+                    const { x, y } = getHexCoords(q, r);
+
+                    // 選択エフェクト
+                    if (isSelected) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.9, 0, Math.PI * 2);
+                        ctx.strokeStyle = '#f1c40f';
+                        ctx.setLineDash([5, 5]);
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                    
+                    // ユニット本体
+                    ctx.beginPath();
+                    ctx.arc(x, y, hexSize * 0.7, 0, Math.PI * 2);
+                    const grad = ctx.createRadialGradient(x-5, y-5, 2, x, y, hexSize*0.7);
+                    if (faction === Faction.South) {
+                        grad.addColorStop(0, '#ff7675'); grad.addColorStop(1, '#d63031');
+                    } else if (faction === Faction.North) {
+                        grad.addColorStop(0, '#74b9ff'); grad.addColorStop(1, '#0984e3');
+                    } else {
+                        grad.addColorStop(0, '#ffeaa7'); grad.addColorStop(1, '#fdcb6e');
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    
+                    // 名前
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowColor = 'black';
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(name, x, y + 5);
+                    ctx.shadowBlur = 0;
+                }
+
+                // UI更新
+                document.getElementById('year').innerText = state.year;
+                const turnName = state.turn === Faction.South ? '南朝' : '北朝';
+                const turnEl = document.getElementById('turn-name');
+                turnEl.innerText = turnName;
+                turnEl.className = state.turn === Faction.South ? 'south' : 'north';
+                
+                const logEl = document.getElementById('log');
+                if (logEl.innerText !== state.log) {
+                    logEl.innerText = state.log;
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+
+                requestAnimationFrame(render);
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 't'].includes(e.key)) {
+                    e.preventDefault();
+                    state.handle_input(e.key);
+                }
+            });
+
+            document.getElementById('end-turn-btn').addEventListener('click', () => {
+                state.handle_input('t');
+            });
+
+            render();
+        }
+
+        run();
+    </script>
+</body>
+</html>
