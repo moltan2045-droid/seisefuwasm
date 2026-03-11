@@ -15,6 +15,7 @@
         .button:hover { background: #d35400; }
         .south { color: #e74c3c; }
         .north { color: #3498db; }
+        .independent { color: #f1c40f; }
     </style>
 </head>
 <body>
@@ -39,6 +40,16 @@
         async function run() {
             await init();
             const state = new GameState();
+            
+            // JSONデータの読み込み
+            try {
+                const response = await fetch('kyushu_data.json');
+                const jsonData = await response.text();
+                state.load_json(jsonData);
+            } catch (e) {
+                console.error("Failed to load map data:", e);
+            }
+
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
             
@@ -47,7 +58,6 @@
             const offsetY = 180;
 
             function getHexCoords(q, r) {
-                // オフセット座標系 (Odd-q offset)
                 const x = hexSize * (3/2 * q);
                 const y = hexSize * Math.sqrt(3) * (r + (q % 2) / 2);
                 return { x: x + offsetX, y: y + offsetY };
@@ -85,15 +95,35 @@
             function render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // マップ描画 (描画範囲を適切に設定)
+                // マップ描画
                 for (let r = -6; r <= 8; r++) {
                     for (let q = -1; q <= 8; q++) {
-                        const isLand = GameState.is_land(q, r);
                         const isCursor = q === state.cursor_q && r === state.cursor_r;
-                        
-                        let color = isLand ? '#1e8449' : '#1a5276';
+                        const color = state.get_terrain_color(q, r);
                         drawHex(q, r, color, isCursor, false);
                     }
+                }
+
+                // 拠点描画
+                const locCount = state.get_location_count();
+                for (let i = 0; i < locCount; i++) {
+                    const q = state.get_location_q_at(i);
+                    const r = state.get_location_r_at(i);
+                    const name = state.get_location_name_at(i);
+                    const type = state.get_location_type_at(i);
+                    const { x, y } = getHexCoords(q, r);
+
+                    ctx.fillStyle = "rgba(0,0,0,0.4)";
+                    ctx.fillRect(x - 25, y - 35, 50, 15);
+                    ctx.fillStyle = "#f1c40f";
+                    ctx.font = "bold 10px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(name, x, y - 24);
+
+                    // 拠点アイコン (簡易)
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "16px serif";
+                    ctx.fillText(type === "要塞" || type === "山城" ? "🏯" : "⚓", x, y - 5);
                 }
 
                 // ユニット描画
@@ -106,7 +136,6 @@
                     const isSelected = state.is_selected_unit(i);
                     const { x, y } = getHexCoords(q, r);
 
-                    // 選択エフェクト
                     if (isSelected) {
                         ctx.beginPath();
                         ctx.arc(x, y, hexSize * 0.9, 0, Math.PI * 2);
@@ -117,7 +146,6 @@
                         ctx.setLineDash([]);
                     }
                     
-                    // ユニット本体
                     ctx.beginPath();
                     ctx.arc(x, y, hexSize * 0.7, 0, Math.PI * 2);
                     const grad = ctx.createRadialGradient(x-5, y-5, 2, x, y, hexSize*0.7);
@@ -134,27 +162,49 @@
                     ctx.lineWidth = 1;
                     ctx.stroke();
                     
-                    // 名前
                     ctx.fillStyle = '#fff';
                     ctx.shadowBlur = 4;
                     ctx.shadowColor = 'black';
-                    ctx.font = 'bold 14px sans-serif';
+                    ctx.font = 'bold 12px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText(name, x, y + 5);
                     ctx.shadowBlur = 0;
                 }
 
                 // UI更新
-                document.getElementById('year').innerText = state.year;
-                const turnName = state.turn === Faction.South ? '南朝' : '北朝';
+                document.getElementById('year').innerText = `${state.year}年 ${state.month}月`;
+                const turnNameMap = {
+                    [Faction.South]: '南朝',
+                    [Faction.North]: '北朝',
+                    [Faction.Independent]: '在地勢力'
+                };
+                const turnName = turnNameMap[state.turn];
                 const turnEl = document.getElementById('turn-name');
                 turnEl.innerText = turnName;
-                turnEl.className = state.turn === Faction.South ? 'south' : 'north';
+                
+                const factionClassMap = {
+                    [Faction.South]: 'south',
+                    [Faction.North]: 'north',
+                    [Faction.Independent]: 'independent'
+                };
+                turnEl.className = factionClassMap[state.turn];
                 
                 const logEl = document.getElementById('log');
                 if (logEl.innerText !== state.log) {
                     logEl.innerText = state.log;
                     logEl.scrollTop = logEl.scrollHeight;
+                }
+
+                // AIの思考
+                if (state.turn !== Faction.South) {
+                    // グローバルな実行フラグで重複実行を避ける
+                    if (!window.aiRunning) {
+                        window.aiRunning = true;
+                        setTimeout(() => {
+                            state.run_ai_turn();
+                            window.aiRunning = false;
+                        }, 800); // 0.8秒おきに行動
+                    }
                 }
 
                 requestAnimationFrame(render);
