@@ -139,8 +139,8 @@ impl GameState {
             cursor_q: 4,
             cursor_r: 0,
             selected_unit_idx: -1,
-            year: 1338,
-            month: 3,
+            year: 1371,
+            month: 8,
             turn: Faction::South,
             log: "初期化待ち...".into(),
         }
@@ -407,6 +407,22 @@ impl GameState {
         self.units[idx].r
     }
 
+    pub fn get_unit_hp(&self, idx: usize) -> i32 {
+        self.units[idx].hp
+    }
+
+    pub fn get_unit_max_hp(&self, idx: usize) -> i32 {
+        self.units[idx].max_hp
+    }
+
+    pub fn get_unit_atk(&self, idx: usize) -> i32 {
+        self.units[idx].atk
+    }
+
+    pub fn get_unit_def(&self, idx: usize) -> i32 {
+        self.units[idx].def
+    }
+
     pub fn is_selected_unit(&self, idx: usize) -> bool {
         self.selected_unit_idx == idx as i32
     }
@@ -510,5 +526,11 @@ impl GameState {
             }
             _ => {}
         }
+    }
+
+    pub fn click_hex(&mut self, q: i32, r: i32) {
+        self.cursor_q = q;
+        self.cursor_r = r;
+        self.handle_input("Enter");
     }
 }

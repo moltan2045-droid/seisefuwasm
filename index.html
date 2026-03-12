@@ -167,7 +167,14 @@
                     ctx.shadowColor = 'black';
                     ctx.font = 'bold 12px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(name, x, y + 5);
+                    
+                    const hp = state.get_unit_hp(i);
+                    const atk = state.get_unit_atk(i);
+
+                    ctx.fillText(name, x, y - 6);
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText(`⚔${atk} ❤️${hp}`, x, y + 8);
+                    
                     ctx.shadowBlur = 0;
                 }
 
@@ -215,6 +222,21 @@
                     e.preventDefault();
                     state.handle_input(e.key);
                 }
+            });
+
+            function pixelToHex(x, y) {
+                const q = Math.round((x - offsetX) / (hexSize * 1.5));
+                const r = Math.round((y - offsetY) / (hexSize * Math.sqrt(3)) - (q % 2) / 2);
+                return { q, r };
+            }
+
+            canvas.addEventListener('click', (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                const { q, r } = pixelToHex(x, y);
+                state.click_hex(q, r);
+                render();
             });
 
             document.getElementById('end-turn-btn').addEventListener('click', () => {
