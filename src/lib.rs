@@ -16,7 +16,11 @@ pub struct TerrainType {
     pub mov: i32,
     pub def: i32,
     pub color: String,
+    #[serde(default = "default_supply_cost")]
+    pub supply_cost: i32,
 }
+
+fn default_supply_cost() -> i32 { 1 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tile {
@@ -37,6 +41,8 @@ pub struct Unit {
     pub atk: i32,
     pub def: i32,
     pub mov: i32,
+    pub supply: i32,
+    pub max_supply: i32,
     pub has_acted: bool,
 }
 
@@ -49,6 +55,7 @@ pub struct Location {
     pub def_bonus: i32,
     pub atk_bonus: i32,
     pub recovery: i32,
+    pub supply_capacity: i32,
 }
 
 #[wasm_bindgen]
@@ -72,6 +79,7 @@ struct InitialData {
     terrain_types: HashMap<String, TerrainType>,
     map_tiles: Vec<MapTileData>,
     key_locations: Vec<LocationData>,
+    #[serde(default)]
     initial_placements: Vec<PlacementData>,
 }
 
@@ -81,6 +89,8 @@ struct LocationData {
     coords: Coords,
     terrain: String,
     bonus: BonusData,
+    #[serde(default)]
+    supply_capacity: i32,
 }
 
 #[derive(Deserialize)]
@@ -106,7 +116,11 @@ struct UnitStats {
     atk: i32,
     def: i32,
     mov: i32,
+    #[serde(default = "default_max_supply")]
+    max_supply: i32,
 }
+
+fn default_max_supply() -> i32 { 100 }
 
 #[derive(Deserialize)]
 struct MapTileData {
@@ -164,6 +178,7 @@ impl GameState {
                 def_bonus: l.bonus.def,
                 atk_bonus: l.bonus.atk,
                 recovery: l.bonus.recovery,
+                supply_capacity: l.supply_capacity,
             }))
             .collect();
 
@@ -186,6 +201,8 @@ impl GameState {
                     atk: figure.unit_stats.atk,
                     def: figure.unit_stats.def,
                     mov: figure.unit_stats.mov,
+                    supply: figure.unit_stats.max_supply,
+                    max_supply: figure.unit_stats.max_supply,
                     has_acted: false,
                 });
             }
@@ -256,7 +273,11 @@ impl GameState {
                     // 移動可能な範囲で最も敵に近いマスを探す
                     let mut best_move = (u_q, u_r);
                     let mut best_dist = min_dist;
-                    let mov = self.units[idx].mov;
+                    
+                    let mut mov = self.units[idx].mov;
+                    if self.units[idx].supply <= 0 {
+                        mov /= 2; // 兵糧切れペナルティ
+                    }
 
                     for r in (u_r - mov)..=(u_r + mov) {
                         for q in (u_q - mov)..=(u_q + mov) {
@@ -272,10 +293,15 @@ impl GameState {
                             }
                         }
                     }
+                    
+                    let dist = hex_dist(u_q, u_r, best_move.0, best_move.1);
+                    let supply_cost = self.get_terrain_supply_cost(best_move.0, best_move.1) * dist;
+                    self.units[idx].supply = (self.units[idx].supply - supply_cost).max(0);
+                    
                     self.units[idx].q = best_move.0;
                     self.units[idx].r = best_move.1;
                     self.units[idx].has_acted = true;
-                    self.log = format!("AI: {}が移動しました。", self.units[idx].name);
+                    self.log = format!("AI: {}が移動しました。(残り兵糧: {})", self.units[idx].name, self.units[idx].supply);
                 } else {
                     self.units[idx].has_acted = true;
                 }
@@ -427,6 +453,19 @@ impl GameState {
         self.selected_unit_idx == idx as i32
     }
 
+    pub fn get_terrain_supply_cost(&self, q: i32, r: i32) -> i32 {
+        if let Some(t_id) = self.tiles.get(&(q, r)) {
+            if let Some(t) = self.terrain_types.get(t_id) {
+                return t.supply_cost;
+            }
+        }
+        1 // デフォルト
+    }
+
+    pub fn get_unit_supply(&self, idx: usize) -> i32 {
+        self.units[idx].supply
+    }
+
     pub fn handle_input(&mut self, key: &str) {
         match key {
             "ArrowUp" => self.cursor_r -= 1,
@@ -446,16 +485,41 @@ impl GameState {
                         Faction::South
                     }
                 };
-                for u in &mut self.units { u.has_acted = false; }
+                
+                // ターン開始時の回復と補給チェック
+                let current_turn = self.turn;
+                for i in 0..self.units.len() {
+                    if self.units[i].faction == current_turn {
+                        self.units[i].has_acted = false;
+                        
+                        // 拠点による補給回復
+                        let (u_q, u_r) = (self.units[i].q, self.units[i].r);
+                        let mut recovered = false;
+                        for ((l_q, l_r), loc) in &self.locations {
+                            if hex_dist(u_q, u_r, *l_q, *l_r) <= 2 {
+                                let amount = loc.supply_capacity / 2;
+                                self.units[i].supply = (self.units[i].supply + amount).min(self.units[i].max_supply);
+                                recovered = true;
+                                break;
+                            }
+                        }
+                        // 拠点から遠い場合は自然減少
+                        if !recovered {
+                            self.units[i].supply = (self.units[i].supply - 2).max(0);
+                        }
+                    }
+                }
+
                 self.log = format!("{}年{}月: {:?}のターンになりました。", self.year, self.month, self.turn);
                 self.selected_unit_idx = -1;
             }
             "f" => { // 強行軍
                 if self.selected_unit_idx >= 0 {
                     let idx = self.selected_unit_idx as usize;
-                    if self.units[idx].hp > 20 {
+                    if self.units[idx].hp > 20 && self.units[idx].supply > 20 {
                         self.units[idx].hp -= 10;
-                        self.log = format!("{}が強行軍を敢行！ 兵は疲弊したが移動力が拡張された。", self.units[idx].name);
+                        self.units[idx].supply -= 20;
+                        self.log = format!("{}が強行軍を敢行！ 兵糧を余計に消費したが移動力が拡張された。", self.units[idx].name);
                     }
                 }
             }
@@ -465,9 +529,10 @@ impl GameState {
                     let is_harvest = self.month == 9 || self.month == 10;
                     let recovery = if is_harvest { 30 } else { 10 };
                     self.units[idx].hp = (self.units[idx].hp + recovery).min(self.units[idx].max_hp);
+                    self.units[idx].supply = (self.units[idx].supply + recovery).min(self.units[idx].max_supply);
                     self.units[idx].has_acted = true;
                     self.selected_unit_idx = -1;
-                    self.log = format!("{}が刈田を行い、HPが{}回復した。", self.units[idx].name, recovery);
+                    self.log = format!("{}が刈田を行い、HPと兵糧が回復した。", self.units[idx].name);
                 }
             }
             "Enter" => {
@@ -480,15 +545,17 @@ impl GameState {
                     
                     if let Some(target_unit_idx) = clicked_unit_idx {
                         if self.units[target_unit_idx].faction != self.units[selected_idx].faction {
-                            // 攻撃
+                            // 攻撃（兵糧切れペナルティ）
+                            let supply_penalty = if self.units[selected_idx].supply <= 0 { 10 } else { 0 };
                             let is_busy_season = self.month == 5 || self.month == 6 || self.month == 9 || self.month == 10;
-                            let penalty = if is_busy_season { 5 } else { 0 };
-                            let damage = (self.units[selected_idx].atk - self.units[target_unit_idx].def / 2 - penalty).max(1);
+                            let season_penalty = if is_busy_season { 5 } else { 0 };
+                            
+                            let damage = (self.units[selected_idx].atk - self.units[target_unit_idx].def / 2 - season_penalty - supply_penalty).max(1);
                             
                             self.units[target_unit_idx].hp -= damage;
                             self.log = format!("{}の攻撃！ {}に{}ダメージ。{}", 
                                 self.units[selected_idx].name, self.units[target_unit_idx].name, damage,
-                                if is_busy_season { "(農繁期につき精彩を欠く)" } else { "" }
+                                if supply_penalty > 0 { "(兵糧不足で力が出ない)" } else if is_busy_season { "(農繁期につき精彩を欠く)" } else { "" }
                             );
                             
                             if self.units[target_unit_idx].hp <= 0 {
@@ -499,31 +566,49 @@ impl GameState {
                         }
                     } else if self.is_land(target_q, target_r) {
                         // 移動コスト判定
-                        let dist = ( (self.units[selected_idx].q - target_q).abs() 
-                                   + (self.units[selected_idx].q + self.units[selected_idx].r - target_q - target_r).abs() 
-                                   + (self.units[selected_idx].r - target_r).abs() ) / 2;
+                        let dist = hex_dist(self.units[selected_idx].q, self.units[selected_idx].r, target_q, target_r);
                         
-                        let cost = self.get_terrain_cost(target_q, target_r);
-                        if dist <= self.units[selected_idx].mov {
+                        let terrain_cost = self.get_terrain_cost(target_q, target_r);
+                        let supply_cost = self.get_terrain_supply_cost(target_q, target_r) * dist;
+                        
+                        let mut max_mov = self.units[selected_idx].mov;
+                        if self.units[selected_idx].supply <= 0 {
+                            max_mov /= 2; // 兵糧切れペナルティ
+                        }
+
+                        if dist <= max_mov {
                             self.units[selected_idx].q = target_q;
                             self.units[selected_idx].r = target_r;
+                            self.units[selected_idx].supply = (self.units[selected_idx].supply - supply_cost).max(0);
                             self.units[selected_idx].has_acted = true;
-                            self.log = format!("{}が移動しました。 ({}, 移動コスト: {})", 
+                            
+                            self.log = format!("{}が移動しました。 (兵糧消費: {}, 残り: {})", 
                                 self.units[selected_idx].name, 
-                                self.get_terrain_name(target_q, target_r),
-                                cost);
+                                supply_cost,
+                                self.units[selected_idx].supply);
+                            
+                            if self.units[selected_idx].supply <= 0 {
+                                self.log += " 兵糧が尽き、行軍が滞っています！";
+                            }
+                            
                             self.selected_unit_idx = -1;
                         } else {
-                            self.log = "そこまでは移動できません。".into();
+                            self.log = if max_mov < self.units[selected_idx].mov {
+                                "兵糧不足でこれ以上は進めません。".into()
+                            } else {
+                                "そこまでは移動できません。".into()
+                            };
                         }
                     }
                 } else if let Some(idx) = clicked_unit_idx {
                     if self.units[idx].faction == self.turn && !self.units[idx].has_acted {
                         self.selected_unit_idx = idx as i32;
-                        self.log = format!("{}を選択中... [k]で刈田, [f]で強行軍", self.units[idx].name);
+                        self.log = format!("{}を選択中... (兵糧: {}) [k]で刈田, [f]で強行軍", 
+                            self.units[idx].name, self.units[idx].supply);
                     }
                 }
             }
+            _ => {}
             _ => {}
         }
     }

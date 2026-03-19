@@ -12,7 +12,8 @@
                 "atk": 15,
                 "def": 25,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 120
             },
             "special_skill": "日本国王の威光 (周囲2マスの味方の防御+10)",
             "relationships": [
@@ -45,7 +46,8 @@
                 "atk": 35,
                 "def": 15,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 150
             },
             "special_skill": "菊池千本槍 (移動後の攻撃力+50%)",
             "relationships": [
@@ -78,7 +80,8 @@
                 "atk": 20,
                 "def": 20,
                 "mov": 3,
-                "rng": 2
+                "rng": 2,
+                "max_supply": 100
             },
             "special_skill": "探題の工作 (隣接する敵の移動を封じる)",
             "relationships": [
@@ -111,7 +114,8 @@
                 "atk": 30,
                 "def": 15,
                 "mov": 6,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 130
             },
             "special_skill": "三島渡海 (海上での移動コストを常に1にする)",
             "relationships": [
@@ -144,7 +148,8 @@
                 "atk": 5,
                 "def": 10,
                 "mov": 2,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 80
             },
             "special_skill": "政務の補佐 (隣接する味方の行動を再開させる)",
             "relationships": [
@@ -171,7 +176,8 @@
                 "atk": 25,
                 "def": 20,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "ai_archetype": "defender",
             "special_skill": "水際での意地 (上陸を試みる敵に対しDEF+20)",
@@ -205,7 +211,8 @@
                 "atk": 26,
                 "def": 22,
                 "mov": 3,
-                "rng": 2
+                "rng": 2,
+                "max_supply": 100
             },
             "ai_archetype": "strategist",
             "special_skill": "観応 service (周囲3マスの敵「北朝」ユニットのATKを-15する)",
@@ -239,7 +246,8 @@
                 "atk": 22,
                 "def": 25,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "ai_archetype": "support",
             "special_skill": "阿蘇の神風 (海上にいる際、敵の遠距離攻撃を50%で無効化)",
@@ -267,7 +275,8 @@
                 "atk": 24,
                 "def": 28,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "ai_archetype": "defender",
             "special_skill": "豊後の鉄壁 (城・拠点にいる際、被ダメージを30%軽減)",
@@ -295,7 +304,8 @@
                 "atk": 32,
                 "def": 22,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "ai_archetype": "aggressive",
             "special_skill": "薩摩隼人の魂 (HPが50%以下の時、ATKが+10)",
@@ -322,7 +332,8 @@
                 "atk": 32,
                 "def": 22,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 110
             },
             "special_skill": "赤星の猛攻 (隣接する味方「菊池」ユニット1体につきATK+5)",
             "actions": [
@@ -340,7 +351,8 @@
                 "atk": 25,
                 "def": 32,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 110
             },
             "special_skill": "城村の鉄壁 (城・拠点にいる際、被ダメージを40%軽減)",
             "actions": [
@@ -358,7 +370,8 @@
                 "atk": 28,
                 "def": 25,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 110
             },
             "special_skill": "隈部の意地 (HPが30%以下の時、全ステータス+10)",
             "actions": [
@@ -376,7 +389,8 @@
                 "atk": 35,
                 "def": 20,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 150
             },
             "special_skill": "十郎の突撃 (移動距離が3マス以上の時、ATK+10)",
             "actions": [
@@ -394,7 +408,8 @@
                 "atk": 20,
                 "def": 20,
                 "mov": 4,
-                "rng": 2
+                "rng": 2,
+                "max_supply": 100
             },
             "special_skill": "阿蘇への橋渡し (隣接する味方「阿蘇」ユニットのMOV+1)",
             "relationships": [
@@ -419,7 +434,8 @@
                 "atk": 24,
                 "def": 26,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "不知火の守り (水辺タイルに隣接している際、DEF+15)",
             "actions": [
@@ -437,7 +453,8 @@
                 "atk": 30,
                 "def": 18,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "外城の尖兵 (敵領地内での攻撃時、ATK+8)",
             "actions": [
@@ -455,7 +472,8 @@
                 "atk": 22,
                 "def": 28,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "西寺の静寂 (隣接する敵のスキル発動率を低下させる)",
             "actions": [
@@ -473,7 +491,8 @@
                 "atk": 26,
                 "def": 22,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "山鹿の山駆け (林・山岳タイルでの移動コスト無視)",
             "actions": [
@@ -490,7 +509,8 @@
                 "atk": 24,
                 "def": 24,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "益城の盾 (周囲2マスの「山城」の防御ボーナスを2倍にする)",
             "actions": [
@@ -508,7 +528,8 @@
                 "atk": 28,
                 "def": 18,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "ai_archetype": "opportunist",
             "special_skill": "鎮西の執念 (上陸ダイス1回振り直し & 上陸直後ATK+15)",
@@ -548,7 +569,8 @@
                 "atk": 18,
                 "def": 22,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 120
             },
             "special_skill": "落日の抵抗 (HPが30%以下の時、防御力が2倍になる)",
             "relationships": [
@@ -587,7 +609,8 @@
                 "atk": 20,
                 "def": 20,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 120
             },
             "special_skill": "新葉の言の葉 (周囲2マスの味方の状態異常を回復し、士気を高める)",
             "relationships": [
@@ -620,7 +643,8 @@
                 "atk": 30,
                 "def": 15,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 120
             },
             "special_skill": "令旨の檄 (マップ上の全味方ユニットのATK+5)",
             "relationships": [
@@ -653,7 +677,8 @@
                 "atk": 28,
                 "def": 20,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "若き当主の決意 (周囲2マスの味方「南朝」ユニットのDEF+15)",
             "relationships": [
@@ -687,7 +712,8 @@
                 "atk": 15,
                 "def": 25,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "矢部の守護 (拠点「矢部」にいる際、周囲2マスの味方のDEF+20)",
             "relationships": [
@@ -715,7 +741,8 @@
                 "atk": 25,
                 "def": 22,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "名和の帆印 (海・川などの水辺タイルでATK+10)",
             "relationships": [
@@ -748,7 +775,8 @@
                 "atk": 22,
                 "def": 24,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "探題解任の工作 (隣接する敵「北朝・幕府」指揮官の全ステータス-10)",
             "relationships": [
@@ -782,7 +810,8 @@
                 "atk": 24,
                 "def": 26,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "高崎山の不落 (拠点「高崎山城」にいる際、毎ターンHPを15%回復)",
             "relationships": [
@@ -816,7 +845,8 @@
                 "atk": 22,
                 "def": 20,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "不屈の執念 (撤退時、周囲の味方の士気が下がらない)",
             "relationships": [
@@ -850,7 +880,8 @@
                 "atk": 40,
                 "def": 18,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "五州太守の威圧 (隣接する敵「少弐」ユニットのATKを半減させる)",
             "relationships": [
@@ -878,7 +909,8 @@
                 "atk": 20,
                 "def": 18,
                 "mov": 6,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 130
             },
             "special_skill": "忽那の水先案内 (海・川タイルでの移動コストを1にする)",
             "relationships": [
@@ -905,7 +937,8 @@
                 "atk": 22,
                 "def": 22,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 90
             },
             "special_skill": "谷山の結束 (拠点「谷山城」にいる際、周囲の味方のHP回復量+10)",
             "relationships": [
@@ -932,7 +965,8 @@
                 "atk": 32,
                 "def": 25,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "西国の覇者 (周囲3マスの味方「北朝」ユニットのATK+10)",
             "relationships": [
@@ -966,7 +1000,8 @@
                 "atk": 25,
                 "def": 22,
                 "mov": 4,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "水軍の指揮 (水上での攻撃力+20%)",
             "actions": [
@@ -986,7 +1021,8 @@
                 "atk": 28,
                 "def": 18,
                 "mov": 4,
-                "rng": 2
+                "rng": 2,
+                "max_supply": 100
             },
             "special_skill": "豊後の強弓 (遠距離攻撃の射程+1)",
             "actions": [
@@ -1005,7 +1041,8 @@
                 "atk": 30,
                 "def": 20,
                 "mov": 3,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 100
             },
             "special_skill": "名門の誇り (周囲の味方の士気を高める)",
             "actions": [
@@ -1024,7 +1061,8 @@
                 "atk": 24,
                 "def": 16,
                 "mov": 5,
-                "rng": 1
+                "rng": 1,
+                "max_supply": 130
             },
             "special_skill": "海上の狼 (海上での移動コスト1、攻撃力+10)",
             "actions": [
@@ -1039,31 +1077,36 @@
             "name": "平地",
             "color": "#e8f5e9",
             "mov": 1,
-            "def": 0
+            "def": 0,
+            "supply_cost": 1
         },
         "mountain": {
             "name": "山地",
             "color": "#8d6e63",
             "mov": 2,
-            "def": 10
+            "def": 10,
+            "supply_cost": 3
         },
         "river": {
             "name": "大河",
             "color": "#bbdefb",
             "mov": 3,
-            "def": -5
+            "def": -5,
+            "supply_cost": 2
         },
         "forest": {
             "name": "森",
             "color": "#a5d6a7",
             "mov": 2,
-            "def": 5
+            "def": 5,
+            "supply_cost": 2
         },
         "sea": {
             "name": "海",
             "color": "#81d4fa",
             "mov": 1,
-            "def": -10
+            "def": -10,
+            "supply_cost": 1
         }
     },
     "map_tiles": [
@@ -1920,7 +1963,8 @@
                 "def": 10,
                 "atk": 5,
                 "recovery": 10
-            }
+            },
+            "supply_capacity": 100
         },
         {
             "name": "博多",
@@ -1933,7 +1977,8 @@
                 "def": 5,
                 "atk": 10,
                 "recovery": 15
-            }
+            },
+            "supply_capacity": 150
         },
         {
             "name": "隈府 (菊池)",
@@ -1946,7 +1991,8 @@
                 "def": 15,
                 "atk": 5,
                 "recovery": 20
-            }
+            },
+            "supply_capacity": 80
         },
         {
             "name": "阿蘇",
@@ -1959,7 +2005,8 @@
                 "def": 20,
                 "atk": 0,
                 "recovery": 10
-            }
+            },
+            "supply_capacity": 40
         },
         {
             "name": "府内 (豊後)",
@@ -1972,7 +2019,8 @@
                 "def": 10,
                 "atk": 5,
                 "recovery": 15
-            }
+            },
+            "supply_capacity": 90
         },
         {
             "name": "鹿児島",
@@ -1985,7 +2033,8 @@
                 "def": 10,
                 "atk": 5,
                 "recovery": 15
-            }
+            },
+            "supply_capacity": 70
         },
         {
             "name": "八代",
@@ -1998,7 +2047,8 @@
                 "def": 10,
                 "atk": 0,
                 "recovery": 10
-            }
+            },
+            "supply_capacity": 60
         },
         {
             "name": "矢部",
