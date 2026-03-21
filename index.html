@@ -2,37 +2,117 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>九州南北朝戦記 (Wasm)</title>
     <style>
-        body { background: #222; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-        h1 { margin-bottom: 10px; color: #f1c40f; text-shadow: 2px 2px 4px #000; }
-        canvas { border: 2px solid #555; background: #001133; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #ui { width: 800px; margin-top: 10px; padding: 15px; background: #333; border-radius: 8px; border: 1px solid #444; }
-        .status-bar { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px; }
-        .log { color: #ecf0f1; height: 3.6em; overflow-y: auto; background: #222; padding: 5px; border-radius: 4px; font-family: monospace; border: 1px solid #444; }
-        .controls { color: #bdc3c7; font-size: 0.9em; margin-top: 15px; text-align: center; line-height: 1.6; }
-        .button { background: #e67e22; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 10px; }
-        .button:hover { background: #d35400; }
+        body { 
+            background: #222; 
+            color: #fff; 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; /* スクロール禁止 */
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas { 
+            display: block;
+            background: #001133; 
+            touch-action: none; /* ブラウザ標準のタッチアクションを無効化 */
+        }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* UI以外の場所へのタッチはCanvasに通す */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Top Bar */
+        .status-bar { 
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1em;
+            pointer-events: auto;
+            border-bottom: 1px solid #555;
+        }
+
+        /* Bottom Controls */
+        .controls-container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            pointer-events: auto;
+            border-top: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .log { 
+            color: #ecf0f1; 
+            height: 3em; 
+            overflow-y: auto; 
+            font-family: monospace; 
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .button { 
+            flex: 1;
+            background: #e67e22; 
+            color: white; 
+            border: none; 
+            padding: 12px 5px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 0.9em;
+            text-align: center;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .button:active { background: #d35400; transform: translateY(2px); }
+        .button.secondary { background: #7f8c8d; }
+
         .south { color: #e74c3c; }
         .north { color: #3498db; }
         .independent { color: #f1c40f; }
     </style>
 </head>
 <body>
-    <h1>九州南北朝戦記</h1>
-    <div id="ui">
+    <div id="ui-layer">
         <div class="status-bar">
-            <div><span id="year">1338</span>年</div>
-            <div id="turn-display">ターン: <span id="turn-name" class="south">南朝</span></div>
-            <button id="end-turn-btn" class="button">ターン終了 (T)</button>
+            <div><span id="year">1338</span>年 <span id="month"></span>月</div>
+            <div id="turn-display"><span id="turn-name" class="south">南朝</span></div>
         </div>
-        <div id="log" class="log">南朝軍のターンです。懐良親王を指揮してください。</div>
+
+        <div class="controls-container">
+            <div id="log" class="log">初期化中...</div>
+            <div class="button-group">
+                <button id="btn-force" class="button secondary">強行軍 (F)</button>
+                <button id="btn-harvest" class="button secondary">刈田 (K)</button>
+                <button id="btn-end-turn" class="button">ターン終了</button>
+            </div>
+        </div>
     </div>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div class="controls">
-        <b>操作:</b> 矢印キーでカーソル移動, <b>Enter</b> で選択/行動, <b>T</b> でターン終了<br>
-        ユニットを選択した後、移動先（緑）または敵（赤）を選んで Enter を押すと行動します。
-    </div>
+
+    <canvas id="gameCanvas"></canvas>
 
     <script type="module">
         import init, { GameState, Faction } from './pkg/kyushu_wasm_wars.js';
@@ -48,14 +128,33 @@
                 state.load_json(jsonData);
             } catch (e) {
                 console.error("Failed to load map data:", e);
+                document.getElementById('log').innerText = "データ読み込みエラー";
             }
 
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
             
-            const hexSize = 35;
-            const offsetX = 150;
-            const offsetY = 180;
+            // 画面サイズに合わせてCanvasをリサイズ
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // 表示設定
+            let hexSize = 40; // モバイル向けに少し大きめ
+            // 初期表示位置（画面中央あたりに来るように調整）
+            let offsetX = canvas.width / 2 - 200; 
+            let offsetY = canvas.height / 2 - 200;
+
+            // タッチ操作用変数
+            let isDragging = false;
+            let lastTouchX = 0;
+            let lastTouchY = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            const TAP_THRESHOLD = 10; // タップとみなす移動量の閾値
 
             function getHexCoords(q, r) {
                 const x = hexSize * (3/2 * q);
@@ -65,6 +164,12 @@
 
             function drawHex(q, r, color, isCursor, isSelected) {
                 const { x, y } = getHexCoords(q, r);
+                
+                // 画面外描画スキップ（カリング）
+                if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) {
+                    return;
+                }
+
                 ctx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     const angle = 2 * Math.PI / 6 * i;
@@ -109,20 +214,23 @@
                 for (let i = 0; i < locCount; i++) {
                     const q = state.get_location_q_at(i);
                     const r = state.get_location_r_at(i);
-                    const name = state.get_location_name_at(i);
-                    const type = state.get_location_type_at(i);
                     const { x, y } = getHexCoords(q, r);
 
-                    ctx.fillStyle = "rgba(0,0,0,0.4)";
-                    ctx.fillRect(x - 25, y - 35, 50, 15);
-                    ctx.fillStyle = "#f1c40f";
-                    ctx.font = "bold 10px sans-serif";
-                    ctx.textAlign = "center";
-                    ctx.fillText(name, x, y - 24);
+                    // カリング
+                    if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) continue;
 
-                    // 拠点アイコン (簡易)
+                    const name = state.get_location_name_at(i);
+                    const type = state.get_location_type_at(i);
+
+                    ctx.fillStyle = "rgba(0,0,0,0.4)";
+                    ctx.fillRect(x - 30, y - 40, 60, 18);
+                    ctx.fillStyle = "#f1c40f";
+                    ctx.font = "bold 12px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(name, x, y - 26);
+
                     ctx.fillStyle = "#fff";
-                    ctx.font = "16px serif";
+                    ctx.font = "20px serif";
                     ctx.fillText(type === "要塞" || type === "山城" ? "🏯" : "⚓", x, y - 5);
                 }
 
@@ -131,10 +239,14 @@
                 for (let i = 0; i < unitCount; i++) {
                     const q = state.get_unit_q(i);
                     const r = state.get_unit_r(i);
+                    const { x, y } = getHexCoords(q, r);
+
+                    // カリング
+                    if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) continue;
+
                     const name = state.get_unit_name(i);
                     const faction = state.get_unit_faction(i);
                     const isSelected = state.is_selected_unit(i);
-                    const { x, y } = getHexCoords(q, r);
 
                     if (isSelected) {
                         ctx.beginPath();
@@ -173,13 +285,15 @@
 
                     ctx.fillText(name, x, y - 6);
                     ctx.font = '10px sans-serif';
-                    ctx.fillText(`⚔${atk} ❤️${hp}`, x, y + 8);
+                    ctx.fillText(`⚔${atk} ❤️${hp}`, x, y + 10);
                     
                     ctx.shadowBlur = 0;
                 }
 
                 // UI更新
-                document.getElementById('year').innerText = `${state.year}年 ${state.month}月`;
+                document.getElementById('year').innerText = `${state.year}`;
+                document.getElementById('month').innerText = `${state.month}`;
+
                 const turnNameMap = {
                     [Faction.South]: '南朝',
                     [Faction.North]: '北朝',
@@ -204,25 +318,19 @@
 
                 // AIの思考
                 if (state.turn !== Faction.South) {
-                    // グローバルな実行フラグで重複実行を避ける
                     if (!window.aiRunning) {
                         window.aiRunning = true;
                         setTimeout(() => {
                             state.run_ai_turn();
                             window.aiRunning = false;
-                        }, 800); // 0.8秒おきに行動
+                        }, 800);
                     }
                 }
 
                 requestAnimationFrame(render);
             }
 
-            window.addEventListener('keydown', (e) => {
-                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 't'].includes(e.key)) {
-                    e.preventDefault();
-                    state.handle_input(e.key);
-                }
-            });
+            // --- 入力ハンドリング ---
 
             function pixelToHex(x, y) {
                 const q = Math.round((x - offsetX) / (hexSize * 1.5));
@@ -230,17 +338,93 @@
                 return { q, r };
             }
 
-            canvas.addEventListener('click', (event) => {
-                const rect = canvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                const { q, r } = pixelToHex(x, y);
-                state.click_hex(q, r);
-                render();
+            // タッチイベント (スマホ用)
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                isDragging = false;
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const dx = touch.clientX - lastTouchX;
+                const dy = touch.clientY - lastTouchY;
+                
+                // 少しでも動いたらドラッグとみなす
+                if (Math.abs(touch.clientX - touchStartX) > TAP_THRESHOLD || 
+                    Math.abs(touch.clientY - touchStartY) > TAP_THRESHOLD) {
+                    isDragging = true;
+                }
+
+                if (isDragging) {
+                    offsetX += dx;
+                    offsetY += dy;
+                }
+                
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (!isDragging) {
+                    // タップ（クリック）処理
+                    const { q, r } = pixelToHex(lastTouchX, lastTouchY);
+                    state.click_hex(q, r);
+                }
+                isDragging = false;
             });
 
-            document.getElementById('end-turn-btn').addEventListener('click', () => {
+            // マウスイベント (PCデバッグ用)
+            let isMouseDown = false;
+            canvas.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                lastTouchX = e.clientX;
+                lastTouchY = e.clientY;
+                touchStartX = e.clientX;
+                touchStartY = e.clientY;
+                isDragging = false;
+            });
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+                const dx = e.clientX - lastTouchX;
+                const dy = e.clientY - lastTouchY;
+                if (Math.abs(e.clientX - touchStartX) > 5 || Math.abs(e.clientY - touchStartY) > 5) {
+                    isDragging = true;
+                }
+                if (isDragging) {
+                    offsetX += dx;
+                    offsetY += dy;
+                }
+                lastTouchX = e.clientX;
+                lastTouchY = e.clientY;
+            });
+            canvas.addEventListener('mouseup', (e) => {
+                isMouseDown = false;
+                if (!isDragging) {
+                    const { q, r } = pixelToHex(e.clientX, e.clientY);
+                    state.click_hex(q, r);
+                }
+                isDragging = false;
+            });
+
+            // UIボタンイベント
+            document.getElementById('btn-end-turn').addEventListener('click', (e) => {
+                e.stopPropagation(); // キャンバスへの伝播を防ぐ
                 state.handle_input('t');
+            });
+            document.getElementById('btn-force').addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.handle_input('f');
+            });
+            document.getElementById('btn-harvest').addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.handle_input('k');
             });
 
             render();

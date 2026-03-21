@@ -247,9 +247,9 @@ impl GameState {
 
             if let Some(t_idx) = target_idx {
                 // 攻撃
-                let damage = self.calculate_damage(idx, t_idx);
+                let (damage, die) = self.calculate_damage(idx, t_idx);
                 self.units[t_idx].hp -= damage;
-                let msg = format!("AI: {}が{}に{}ダメージ！", self.units[idx].name, self.units[t_idx].name, damage);
+                let msg = format!("AI: {}が{}に{}ダメージ！(ダイス: {})", self.units[idx].name, self.units[t_idx].name, damage, die);
                 self.log = msg;
                 if self.units[t_idx].hp <= 0 {
                     self.units.remove(t_idx);
@@ -314,7 +314,7 @@ impl GameState {
         acted
     }
 
-    fn calculate_damage(&self, attacker_idx: usize, target_idx: usize) -> i32 {
+    fn calculate_damage(&self, attacker_idx: usize, target_idx: usize) -> (i32, i32) {
         let attacker = &self.units[attacker_idx];
         let target = &self.units[target_idx];
         
@@ -329,11 +329,19 @@ impl GameState {
             def += loc.def_bonus;
         }
 
-        // 季節ペナルティ
+        // 季節ペナルティ (農繁期: 5, 6, 9, 10月)
         let is_busy_season = self.month == 5 || self.month == 6 || self.month == 9 || self.month == 10;
         if is_busy_season { atk -= 5; }
+        
+        // 兵糧切れペナルティ
+        if attacker.supply <= 0 { atk -= 10; }
 
-        (atk - def / 2).max(1)
+        // 6面ダイス
+        let die = (js_sys::Math::random() * 6.0).floor() as i32 + 1;
+        atk += die;
+
+        let damage = (atk - def / 2).max(1);
+        (damage, die)
     }
 
     pub fn get_location_count(&self) -> usize {
@@ -545,17 +553,16 @@ impl GameState {
                     
                     if let Some(target_unit_idx) = clicked_unit_idx {
                         if self.units[target_unit_idx].faction != self.units[selected_idx].faction {
-                            // 攻撃（兵糧切れペナルティ）
-                            let supply_penalty = if self.units[selected_idx].supply <= 0 { 10 } else { 0 };
-                            let is_busy_season = self.month == 5 || self.month == 6 || self.month == 9 || self.month == 10;
-                            let season_penalty = if is_busy_season { 5 } else { 0 };
-                            
-                            let damage = (self.units[selected_idx].atk - self.units[target_unit_idx].def / 2 - season_penalty - supply_penalty).max(1);
+                            // 攻撃
+                            let (damage, die) = self.calculate_damage(selected_idx, target_unit_idx);
                             
                             self.units[target_unit_idx].hp -= damage;
-                            self.log = format!("{}の攻撃！ {}に{}ダメージ。{}", 
-                                self.units[selected_idx].name, self.units[target_unit_idx].name, damage,
-                                if supply_penalty > 0 { "(兵糧不足で力が出ない)" } else if is_busy_season { "(農繁期につき精彩を欠く)" } else { "" }
+                            let supply_penalty = self.units[selected_idx].supply <= 0;
+                            let is_busy_season = self.month == 5 || self.month == 6 || self.month == 9 || self.month == 10;
+                            
+                            self.log = format!("{}の攻撃！ {}に{}ダメージ。(ダイス: {}){}", 
+                                self.units[selected_idx].name, self.units[target_unit_idx].name, damage, die,
+                                if supply_penalty { " (兵糧不足で力が出ない)" } else if is_busy_season { " (農繁期につき精彩を欠く)" } else { "" }
                             );
                             
                             if self.units[target_unit_idx].hp <= 0 {
@@ -568,7 +575,7 @@ impl GameState {
                         // 移動コスト判定
                         let dist = hex_dist(self.units[selected_idx].q, self.units[selected_idx].r, target_q, target_r);
                         
-                        let terrain_cost = self.get_terrain_cost(target_q, target_r);
+                        let _terrain_cost = self.get_terrain_cost(target_q, target_r);
                         let supply_cost = self.get_terrain_supply_cost(target_q, target_r) * dist;
                         
                         let mut max_mov = self.units[selected_idx].mov;
@@ -608,7 +615,6 @@ impl GameState {
                     }
                 }
             }
-            _ => {}
             _ => {}
         }
     }
