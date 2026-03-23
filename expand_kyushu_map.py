@@ -1,7 +1,7 @@
 import json
 import os
 
-GAME_DATA_PATH = 'kyushu-wasm-wars/kyushu_data.json'
+GAME_DATA_PATH = 'kyushu_data.json'
 
 def expand_map():
     if not os.path.exists(GAME_DATA_PATH):
@@ -11,13 +11,6 @@ def expand_map():
     with open(GAME_DATA_PATH, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    # 既存のタイルを削除し、一から生成（九州全体を表現）
-    new_tiles = []
-    
-    # 座標範囲の定義 (Q: 0~10, R: -2~10)
-    # 地形の定義: plain, mountain, forest, sea
-    
-    # 基本は全て海
     map_dict = {}
 
     def set_tile(q, r, t_type):
@@ -27,36 +20,46 @@ def expand_map():
     for q in range(4, 9):
         for r in range(0, 3):
             set_tile(q, r, "plain")
-    set_tile(7, 1, "plain") # 大宰府周辺
+    
+    # 筑後川 (Chikugo River)
+    for q in range(4, 8):
+        set_tile(q, 2, "river")
 
     # 2. 肥前 (西部九州)
     for q in range(1, 4):
         for r in range(1, 5):
             set_tile(q, r, "plain")
-    set_tile(2, 2, "mountain") # 肥前の山
+    set_tile(2, 2, "mountain")
+    set_tile(2, 3, "forest")
+    set_tile(1, 2, "forest")
 
     # 3. 肥後 (中部九州 - 菊池本拠地)
     for q in range(3, 7):
         for r in range(3, 6):
             set_tile(q, r, "plain")
-    set_tile(4, 4, "plain") # 菊池
+    set_tile(4, 4, "plain") # 隈府
     set_tile(5, 4, "mountain") # 阿蘇山
+    set_tile(6, 4, "mountain") # 九重連山方面
+    set_tile(5, 3, "forest")
 
     # 4. 豊後 (東部九州)
     for q in range(8, 11):
         for r in range(1, 5):
             set_tile(q, r, "plain")
-    set_tile(9, 3, "mountain") # 豊後の山
+    set_tile(9, 3, "mountain")
+    set_tile(8, 3, "forest")
 
     # 5. 日向・大隅・薩摩 (南部九州)
     for q in range(3, 8):
         for r in range(6, 11):
             set_tile(q, r, "plain")
-    set_tile(4, 8, "plain") # 鹿児島湾周辺
-    set_tile(5, 7, "mountain") # 霧島周辺
+    set_tile(4, 8, "plain") # 鹿児島
+    set_tile(5, 7, "mountain") # 霧島
+    set_tile(6, 7, "mountain")
+    set_tile(4, 7, "forest")
+    set_tile(3, 8, "forest")
 
-    # 6. 海の境界（陸地の周りを少し埋める）
-    # 全体の矩形範囲を sea で埋めてから陸地を上書き
+    # 6. 海の境界
     final_tiles = []
     for q in range(0, 12):
         for r in range(-2, 12):

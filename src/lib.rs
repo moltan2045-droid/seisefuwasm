@@ -44,6 +44,7 @@ pub struct Unit {
     pub supply: i32,
     pub max_supply: i32,
     pub has_acted: bool,
+    skill: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -108,6 +109,8 @@ struct FigureData {
     name: String,
     faction: String,
     unit_stats: UnitStats,
+    #[serde(default)]
+    special_skill: String,
 }
 
 #[derive(Deserialize)]
@@ -168,7 +171,7 @@ impl GameState {
         self.tiles = data.map_tiles.into_iter()
             .map(|t| ((t.q, t.r), t.tile_type))
             .collect();
-        
+
         self.locations = data.key_locations.into_iter()
             .map(|l| ((l.coords.q, l.coords.r), Location {
                 name: l.name,
@@ -204,6 +207,7 @@ impl GameState {
                     supply: figure.unit_stats.max_supply,
                     max_supply: figure.unit_stats.max_supply,
                     has_acted: false,
+                    skill: figure.special_skill.clone(),
                 });
             }
         }
@@ -232,7 +236,7 @@ impl GameState {
             acted = true;
             let u_q = self.units[idx].q;
             let u_r = self.units[idx].r;
-            
+
             // 1. 隣接する敵を探す
             let mut target_idx = None;
             for (i, target) in self.units.iter().enumerate() {
@@ -273,7 +277,7 @@ impl GameState {
                     // 移動可能な範囲で最も敵に近いマスを探す
                     let mut best_move = (u_q, u_r);
                     let mut best_dist = min_dist;
-                    
+
                     let mut mov = self.units[idx].mov;
                     if self.units[idx].supply <= 0 {
                         mov /= 2; // 兵糧切れペナルティ
@@ -293,11 +297,10 @@ impl GameState {
                             }
                         }
                     }
-                    
+
                     let dist = hex_dist(u_q, u_r, best_move.0, best_move.1);
                     let supply_cost = self.get_terrain_supply_cost(best_move.0, best_move.1) * dist;
                     self.units[idx].supply = (self.units[idx].supply - supply_cost).max(0);
-                    
                     self.units[idx].q = best_move.0;
                     self.units[idx].r = best_move.1;
                     self.units[idx].has_acted = true;
@@ -317,11 +320,28 @@ impl GameState {
     fn calculate_damage(&self, attacker_idx: usize, target_idx: usize) -> (i32, i32) {
         let attacker = &self.units[attacker_idx];
         let target = &self.units[target_idx];
-        
+
         let mut atk = attacker.atk;
         let mut def = target.def;
 
+        // 特殊スキル: 菊池千本槍 (攻撃力+50%)
+        if attacker.skill.contains("菊池千本槍") {
+            atk = (atk as f32 * 1.5) as i32;
+        }
+
+        // 特殊スキル: 日本国王の威光 (周囲2マスの味方の防御+10)
+        // 防御側（target）の周囲2マスに懐良親王がいるかチェック
+        for u in &self.units {
+            if u.faction == target.faction && u.skill.contains("日本国王の威光") {
+                if hex_dist(target.q, target.r, u.q, u.r) <= 2 {
+                    def += 10;
+                    break; 
+                }
+            }
+        }
+
         // 拠点ボーナス
+
         if let Some(loc) = self.locations.get(&(attacker.q, attacker.r)) {
             atk += loc.atk_bonus;
         }
@@ -332,7 +352,7 @@ impl GameState {
         // 季節ペナルティ (農繁期: 5, 6, 9, 10月)
         let is_busy_season = self.month == 5 || self.month == 6 || self.month == 9 || self.month == 10;
         if is_busy_season { atk -= 5; }
-        
+
         // 兵糧切れペナルティ
         if attacker.supply <= 0 { atk -= 10; }
 
@@ -383,7 +403,11 @@ impl GameState {
     }
 
     pub fn is_land(&self, q: i32, r: i32) -> bool {
-        self.tiles.contains_key(&(q, r))
+        if let Some(t_id) = self.tiles.get(&(q, r)) {
+            t_id != "sea"
+        } else {
+            false
+        }
     }
 
     pub fn get_terrain_name(&self, q: i32, r: i32) -> String {
@@ -411,7 +435,7 @@ impl GameState {
         } else {
             1 // 海
         };
-        
+
         // 冬の山岳ペナルティ
         let is_mountain = t_id.map(|id| id == "mountain").unwrap_or(false);
         if self.get_season() == Season::Winter && is_mountain {
@@ -457,9 +481,14 @@ impl GameState {
         self.units[idx].def
     }
 
+    pub fn get_unit_skill(&self, idx: usize) -> String {
+        self.units[idx].skill.clone()
+    }
+
     pub fn is_selected_unit(&self, idx: usize) -> bool {
         self.selected_unit_idx == idx as i32
     }
+
 
     pub fn get_terrain_supply_cost(&self, q: i32, r: i32) -> i32 {
         if let Some(t_id) = self.tiles.get(&(q, r)) {
@@ -575,7 +604,27 @@ impl GameState {
                         // 移動コスト判定
                         let dist = hex_dist(self.units[selected_idx].q, self.units[selected_idx].r, target_q, target_r);
                         
-                        let _terrain_cost = self.get_terrain_cost(target_q, target_r);
+                        // 特殊スキル: 探題の工作 (隣接する敵の移動を封じる)
+                        let mut trapped = false;
+                        for u in &self.units {
+                            if u.faction != self.units[selected_idx].faction && u.skill.contains("探題の工作") {
+                                if hex_dist(self.units[selected_idx].q, self.units[selected_idx].r, u.q, u.r) <= 1 {
+                                    trapped = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if trapped && dist > 0 {
+                            self.log = format!("{}は今川了俊の工作に阻まれ、足止めされています！", self.units[selected_idx].name);
+                            return;
+                        }
+
+                        let terrain_cost = if self.units[selected_idx].skill.contains("山駆け") {
+                            1 // 地形無視
+                        } else {
+                            self.get_terrain_cost(target_q, target_r)
+                        };
                         let supply_cost = self.get_terrain_supply_cost(target_q, target_r) * dist;
                         
                         let mut max_mov = self.units[selected_idx].mov;
@@ -610,8 +659,9 @@ impl GameState {
                 } else if let Some(idx) = clicked_unit_idx {
                     if self.units[idx].faction == self.turn && !self.units[idx].has_acted {
                         self.selected_unit_idx = idx as i32;
-                        self.log = format!("{}を選択中... (兵糧: {}) [k]で刈田, [f]で強行軍", 
-                            self.units[idx].name, self.units[idx].supply);
+                        let skill_name = if self.units[idx].skill.is_empty() { "なし".to_string() } else { self.units[idx].skill.clone() };
+                        self.log = format!("{}を選択中 (兵糧: {}, 技: {}) [k]で刈田, [f]で強行軍", 
+                            self.units[idx].name, self.units[idx].supply, skill_name);
                     }
                 }
             }

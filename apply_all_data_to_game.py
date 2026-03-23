@@ -2,11 +2,11 @@ import json
 import os
 
 MASTER_DATA_PATH = 'kyushu_nanbokucho_data.json'
-GAME_DATA_PATH = 'kyushu-wasm-wars/kyushu_data.json'
+GAME_DATA_PATH = 'kyushu_data.json'
 
 def apply_all_data():
     if not os.path.exists(MASTER_DATA_PATH) or not os.path.exists(GAME_DATA_PATH):
-        print("Error: Files not found.")
+        print(f"Error: Files not found. (Master: {MASTER_DATA_PATH}, Game: {GAME_DATA_PATH})")
         return
 
     with open(MASTER_DATA_PATH, 'r', encoding='utf-8') as f:
@@ -21,7 +21,10 @@ def apply_all_data():
             game_data['figures'].append(figure)
             existing_names.add(figure['name'])
 
-    # 2. Re-place Initial Placements (Priority based)
+    # 2. Sync Encyclopedia
+    game_data['encyclopedia'] = master_data.get('encyclopedia', [])
+
+    # 3. Re-place Initial Placements (Priority based)
     land_tiles = [
         (t['q'], t['r']) for t in game_data.get('map_tiles', []) 
         if t.get('type') != 'sea'

@@ -89,6 +89,47 @@
         }
         .button:active { background: #d35400; transform: translateY(2px); }
         .button.secondary { background: #7f8c8d; }
+        .button.info { background: #2980b9; }
+
+        /* Encyclopedia Modal */
+        #modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        #modal-content {
+            background: #2c3e50;
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+            max-width: 600px;
+            margin: auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            pointer-events: auto;
+        }
+        #modal-content h2 { color: #f1c40f; margin-top: 0; border-bottom: 1px solid #f1c40f; padding-bottom: 10px; }
+        #modal-content h3 { color: #3498db; margin-bottom: 5px; font-size: 1.1em; }
+        #modal-content p { line-height: 1.6; font-size: 0.9em; margin-bottom: 20px; color: #ecf0f1; }
+        #modal-close {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            float: right;
+            font-weight: bold;
+        }
 
         .south { color: #e74c3c; }
         .north { color: #3498db; }
@@ -105,9 +146,20 @@
         <div class="controls-container">
             <div id="log" class="log">初期化中...</div>
             <div class="button-group">
+                <button id="btn-info" class="button info">資料 (E)</button>
                 <button id="btn-force" class="button secondary">強行軍 (F)</button>
                 <button id="btn-harvest" class="button secondary">刈田 (K)</button>
-                <button id="btn-end-turn" class="button">ターン終了</button>
+                <button id="btn-end-turn" class="button">終了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-overlay">
+        <div id="modal-content">
+            <button id="modal-close">閉じる</button>
+            <h2>九州南北朝資料館</h2>
+            <div id="encyclopedia-body">
+                <!-- 資料内容がここに挿入される -->
             </div>
         </div>
     </div>
@@ -120,12 +172,15 @@
         async function run() {
             await init();
             const state = new GameState();
+            let encyclopediaData = [];
             
             // JSONデータの読み込み
             try {
                 const response = await fetch('kyushu_data.json');
-                const jsonData = await response.text();
-                state.load_json(jsonData);
+                const jsonText = await response.text();
+                const fullData = JSON.parse(jsonText);
+                encyclopediaData = fullData.encyclopedia || [];
+                state.load_json(jsonText);
             } catch (e) {
                 console.error("Failed to load map data:", e);
                 document.getElementById('log').innerText = "データ読み込みエラー";
@@ -143,8 +198,7 @@
             resizeCanvas();
 
             // 表示設定
-            let hexSize = 40; // モバイル向けに少し大きめ
-            // 初期表示位置（画面中央あたりに来るように調整）
+            let hexSize = 40; 
             let offsetX = canvas.width / 2 - 200; 
             let offsetY = canvas.height / 2 - 200;
 
@@ -154,7 +208,7 @@
             let lastTouchY = 0;
             let touchStartX = 0;
             let touchStartY = 0;
-            const TAP_THRESHOLD = 10; // タップとみなす移動量の閾値
+            const TAP_THRESHOLD = 10; 
 
             function getHexCoords(q, r) {
                 const x = hexSize * (3/2 * q);
@@ -164,11 +218,7 @@
 
             function drawHex(q, r, color, isCursor, isSelected) {
                 const { x, y } = getHexCoords(q, r);
-                
-                // 画面外描画スキップ（カリング）
-                if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) {
-                    return;
-                }
+                if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) return;
 
                 ctx.beginPath();
                 for (let i = 0; i < 6; i++) {
@@ -200,9 +250,9 @@
             function render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // マップ描画
-                for (let r = -6; r <= 8; r++) {
-                    for (let q = -1; q <= 8; q++) {
+                // マップ描画 (範囲を拡大: q: 0~11, r: -2~11)
+                for (let r = -2; r <= 11; r++) {
+                    for (let q = 0; q <= 11; q++) {
                         const isCursor = q === state.cursor_q && r === state.cursor_r;
                         const color = state.get_terrain_color(q, r);
                         drawHex(q, r, color, isCursor, false);
@@ -215,8 +265,6 @@
                     const q = state.get_location_q_at(i);
                     const r = state.get_location_r_at(i);
                     const { x, y } = getHexCoords(q, r);
-
-                    // カリング
                     if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) continue;
 
                     const name = state.get_location_name_at(i);
@@ -228,7 +276,6 @@
                     ctx.font = "bold 12px sans-serif";
                     ctx.textAlign = "center";
                     ctx.fillText(name, x, y - 26);
-
                     ctx.fillStyle = "#fff";
                     ctx.font = "20px serif";
                     ctx.fillText(type === "要塞" || type === "山城" ? "🏯" : "⚓", x, y - 5);
@@ -240,8 +287,6 @@
                     const q = state.get_unit_q(i);
                     const r = state.get_unit_r(i);
                     const { x, y } = getHexCoords(q, r);
-
-                    // カリング
                     if (x < -hexSize || x > canvas.width + hexSize || y < -hexSize || y > canvas.height + hexSize) continue;
 
                     const name = state.get_unit_name(i);
@@ -282,11 +327,9 @@
                     
                     const hp = state.get_unit_hp(i);
                     const atk = state.get_unit_atk(i);
-
                     ctx.fillText(name, x, y - 6);
                     ctx.font = '10px sans-serif';
                     ctx.fillText(`⚔${atk} ❤️${hp}`, x, y + 10);
-                    
                     ctx.shadowBlur = 0;
                 }
 
@@ -294,20 +337,12 @@
                 document.getElementById('year').innerText = `${state.year}`;
                 document.getElementById('month').innerText = `${state.month}`;
 
-                const turnNameMap = {
-                    [Faction.South]: '南朝',
-                    [Faction.North]: '北朝',
-                    [Faction.Independent]: '在地勢力'
-                };
+                const turnNameMap = { [Faction.South]: '南朝', [Faction.North]: '北朝', [Faction.Independent]: '在地勢力' };
                 const turnName = turnNameMap[state.turn];
                 const turnEl = document.getElementById('turn-name');
                 turnEl.innerText = turnName;
                 
-                const factionClassMap = {
-                    [Faction.South]: 'south',
-                    [Faction.North]: 'north',
-                    [Faction.Independent]: 'independent'
-                };
+                const factionClassMap = { [Faction.South]: 'south', [Faction.North]: 'north', [Faction.Independent]: 'independent' };
                 turnEl.className = factionClassMap[state.turn];
                 
                 const logEl = document.getElementById('log');
@@ -316,36 +351,26 @@
                     logEl.scrollTop = logEl.scrollHeight;
                 }
 
-                // AIの思考
-                if (state.turn !== Faction.South) {
-                    if (!window.aiRunning) {
-                        window.aiRunning = true;
-                        setTimeout(() => {
-                            state.run_ai_turn();
-                            window.aiRunning = false;
-                        }, 800);
-                    }
+                if (state.turn !== Faction.South && !window.aiRunning) {
+                    window.aiRunning = true;
+                    setTimeout(() => { state.run_ai_turn(); window.aiRunning = false; }, 800);
                 }
 
                 requestAnimationFrame(render);
             }
 
-            // --- 入力ハンドリング ---
-
+            // 入力ハンドリング
             function pixelToHex(x, y) {
                 const q = Math.round((x - offsetX) / (hexSize * 1.5));
                 const r = Math.round((y - offsetY) / (hexSize * Math.sqrt(3)) - (q % 2) / 2);
                 return { q, r };
             }
 
-            // タッチイベント (スマホ用)
             canvas.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
-                lastTouchX = touch.clientX;
-                lastTouchY = touch.clientY;
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
+                lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+                touchStartX = touch.clientX; touchStartY = touch.clientY;
                 isDragging = false;
             }, { passive: false });
 
@@ -354,55 +379,32 @@
                 const touch = e.touches[0];
                 const dx = touch.clientX - lastTouchX;
                 const dy = touch.clientY - lastTouchY;
-                
-                // 少しでも動いたらドラッグとみなす
-                if (Math.abs(touch.clientX - touchStartX) > TAP_THRESHOLD || 
-                    Math.abs(touch.clientY - touchStartY) > TAP_THRESHOLD) {
-                    isDragging = true;
-                }
-
-                if (isDragging) {
-                    offsetX += dx;
-                    offsetY += dy;
-                }
-                
-                lastTouchX = touch.clientX;
-                lastTouchY = touch.clientY;
+                if (Math.abs(touch.clientX - touchStartX) > TAP_THRESHOLD || Math.abs(touch.clientY - touchStartY) > TAP_THRESHOLD) isDragging = true;
+                if (isDragging) { offsetX += dx; offsetY += dy; }
+                lastTouchX = touch.clientX; lastTouchY = touch.clientY;
             }, { passive: false });
 
             canvas.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 if (!isDragging) {
-                    // タップ（クリック）処理
                     const { q, r } = pixelToHex(lastTouchX, lastTouchY);
                     state.click_hex(q, r);
                 }
                 isDragging = false;
             });
 
-            // マウスイベント (PCデバッグ用)
-            let isMouseDown = false;
             canvas.addEventListener('mousedown', (e) => {
-                isMouseDown = true;
-                lastTouchX = e.clientX;
-                lastTouchY = e.clientY;
-                touchStartX = e.clientX;
-                touchStartY = e.clientY;
-                isDragging = false;
+                isMouseDown = true; lastTouchX = e.clientX; lastTouchY = e.clientY;
+                touchStartX = e.clientX; touchStartY = e.clientY; isDragging = false;
             });
+            let isMouseDown = false;
             canvas.addEventListener('mousemove', (e) => {
                 if (!isMouseDown) return;
                 const dx = e.clientX - lastTouchX;
                 const dy = e.clientY - lastTouchY;
-                if (Math.abs(e.clientX - touchStartX) > 5 || Math.abs(e.clientY - touchStartY) > 5) {
-                    isDragging = true;
-                }
-                if (isDragging) {
-                    offsetX += dx;
-                    offsetY += dy;
-                }
-                lastTouchX = e.clientX;
-                lastTouchY = e.clientY;
+                if (Math.abs(e.clientX - touchStartX) > 5 || Math.abs(e.clientY - touchStartY) > 5) isDragging = true;
+                if (isDragging) { offsetX += dx; offsetY += dy; }
+                lastTouchX = e.clientX; lastTouchY = e.clientY;
             });
             canvas.addEventListener('mouseup', (e) => {
                 isMouseDown = false;
@@ -414,17 +416,34 @@
             });
 
             // UIボタンイベント
-            document.getElementById('btn-end-turn').addEventListener('click', (e) => {
-                e.stopPropagation(); // キャンバスへの伝播を防ぐ
-                state.handle_input('t');
-            });
-            document.getElementById('btn-force').addEventListener('click', (e) => {
-                e.stopPropagation();
-                state.handle_input('f');
-            });
-            document.getElementById('btn-harvest').addEventListener('click', (e) => {
-                e.stopPropagation();
-                state.handle_input('k');
+            document.getElementById('btn-info').addEventListener('click', (e) => { e.stopPropagation(); showEncyclopedia(); });
+            document.getElementById('modal-close').addEventListener('click', () => { document.getElementById('modal-overlay').style.display = 'none'; });
+            document.getElementById('btn-end-turn').addEventListener('click', (e) => { e.stopPropagation(); state.handle_input('t'); });
+            document.getElementById('btn-force').addEventListener('click', (e) => { e.stopPropagation(); state.handle_input('f'); });
+            document.getElementById('btn-harvest').addEventListener('click', (e) => { e.stopPropagation(); state.handle_input('k'); });
+
+            function showEncyclopedia() {
+                const body = document.getElementById('encyclopedia-body');
+                body.innerHTML = '';
+                if (encyclopediaData.length === 0) {
+                    body.innerHTML = '<p>資料データが見つかりません。</p>';
+                } else {
+                    encyclopediaData.forEach(item => {
+                        const section = document.createElement('div');
+                        section.innerHTML = `<h3>${item.title}</h3><p>${item.content}</p>`;
+                        body.appendChild(section);
+                    });
+                }
+                document.getElementById('modal-overlay').style.display = 'flex';
+            }
+
+            // キーボード
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'e' || e.key === 'E') showEncyclopedia();
+                if (e.key === 'f' || e.key === 'F') state.handle_input('f');
+                if (e.key === 'k' || e.key === 'K') state.handle_input('k');
+                if (e.key === 't' || e.key === 'T') state.handle_input('t');
+                if (e.key.startsWith('Arrow')) state.handle_input(e.key);
             });
 
             render();
