@@ -285,7 +285,9 @@ impl GameState {
 
                     for r in (u_r - mov)..=(u_r + mov) {
                         for q in (u_q - mov)..=(u_q + mov) {
-                            if hex_dist(u_q, u_r, q, r) <= mov && self.is_land(q, r) {
+                            let dist = hex_dist(u_q, u_r, q, r);
+                            let t_cost = self.get_terrain_cost(q, r);
+                            if dist * t_cost <= mov && self.is_land(q, r) {
                                 // 他のユニットがいないかチェック
                                 if !self.units.iter().any(|u| u.q == q && u.r == r) {
                                     let d = hex_dist(q, r, eq, er);
@@ -329,8 +331,21 @@ impl GameState {
             atk = (atk as f32 * 1.5) as i32;
         }
 
+        // 特殊スキル: 薩摩隼人の魂 (HPが50%以下の時、ATK+10)
+        if attacker.skill.contains("薩摩隼人の魂") && attacker.hp <= attacker.max_hp / 2 {
+            atk += 10;
+        }
+
+        // 特殊スキル: 名和の帆印 (水辺タイルでATK+10)
+        if attacker.skill.contains("名和の帆印") {
+            if let Some(t_id) = self.tiles.get(&(attacker.q, attacker.r)) {
+                if t_id == "river" || t_id == "sea" {
+                    atk += 10;
+                }
+            }
+        }
+
         // 特殊スキル: 日本国王の威光 (周囲2マスの味方の防御+10)
-        // 防御側（target）の周囲2マスに懐良親王がいるかチェック
         for u in &self.units {
             if u.faction == target.faction && u.skill.contains("日本国王の威光") {
                 if hex_dist(target.q, target.r, u.q, u.r) <= 2 {
@@ -340,8 +355,56 @@ impl GameState {
             }
         }
 
-        // 拠点ボーナス
+        // 特殊スキル: 若き当主の決意 (周囲2マスの味方「南朝」ユニットのDEF+15)
+        if target.faction == Faction::South {
+            for u in &self.units {
+                if u.skill.contains("若き当主の決意") && hex_dist(target.q, target.r, u.q, u.r) <= 2 {
+                    def += 15;
+                    break;
+                }
+            }
+        }
 
+        // 特殊スキル: 西国の覇者 (周囲3マスの味方「北朝」ユニットのATK+10)
+        if attacker.faction == Faction::North {
+            for u in &self.units {
+                if u.skill.contains("西国の覇者") && hex_dist(attacker.q, attacker.r, u.q, u.r) <= 3 {
+                    atk += 10;
+                    break;
+                }
+            }
+        }
+
+        // 特殊スキル: 豊後の鉄壁 (拠点にいる際、被ダメージを30%軽減)
+        let mut damage_multiplier = 1.0;
+        if target.skill.contains("豊後の鉄壁") {
+            if self.locations.contains_key(&(target.q, target.r)) {
+                damage_multiplier *= 0.7;
+            }
+        }
+
+        // 特殊スキル: 落日の抵抗 (HPが30%以下の時、防御力が2倍になる)
+        if target.skill.contains("落日の抵抗") && target.hp <= (target.max_hp as f32 * 0.3) as i32 {
+            def *= 2;
+        }
+
+        // 全体バフ: 令旨の檄 (南朝ユニットのATK+5)
+        if attacker.faction == Faction::South {
+            if self.units.iter().any(|u| u.skill.contains("令旨の檄")) {
+                atk += 5;
+            }
+        }
+
+        // 特殊スキル: 阿蘇の神風 (海・川にいる際、防御力を高める)
+        if target.skill.contains("阿蘇の神風") {
+            if let Some(t_id) = self.tiles.get(&(target.q, target.r)) {
+                if t_id == "river" || t_id == "sea" {
+                    def += 15;
+                }
+            }
+        }
+
+        // 拠点ボーナス
         if let Some(loc) = self.locations.get(&(attacker.q, attacker.r)) {
             atk += loc.atk_bonus;
         }
@@ -360,7 +423,8 @@ impl GameState {
         let die = (js_sys::Math::random() * 6.0).floor() as i32 + 1;
         atk += die;
 
-        let damage = (atk - def / 2).max(1);
+        let base_damage = (atk - def / 2).max(1);
+        let damage = (base_damage as f32 * damage_multiplier) as i32;
         (damage, die)
     }
 
@@ -529,19 +593,38 @@ impl GameState {
                     if self.units[i].faction == current_turn {
                         self.units[i].has_acted = false;
                         
-                        // 拠点による補給回復
                         let (u_q, u_r) = (self.units[i].q, self.units[i].r);
-                        let mut recovered = false;
+                        let mut at_base = false;
+                        
+                        // 拠点による補給回復とHP回復
                         for ((l_q, l_r), loc) in &self.locations {
                             if hex_dist(u_q, u_r, *l_q, *l_r) <= 2 {
-                                let amount = loc.supply_capacity / 2;
-                                self.units[i].supply = (self.units[i].supply + amount).min(self.units[i].max_supply);
-                                recovered = true;
+                                let supply_amount = loc.supply_capacity / 2;
+                                self.units[i].supply = (self.units[i].supply + supply_amount).min(self.units[i].max_supply);
+                                
+                                // HP回復 (拠点に直接いる場合)
+                                if u_q == *l_q && u_r == *l_r {
+                                    let hp_recovery = loc.recovery;
+                                    self.units[i].hp = (self.units[i].hp + hp_recovery).min(self.units[i].max_hp);
+                                }
+                                at_base = true;
                                 break;
                             }
                         }
+
+                        // 特殊スキル: 高崎山の不落 (拠点にいる際、毎ターンHPを15%回復)
+                        if self.units[i].skill.contains("高崎山の不落") && at_base {
+                            let recovery = (self.units[i].max_hp as f32 * 0.15) as i32;
+                            self.units[i].hp = (self.units[i].hp + recovery).min(self.units[i].max_hp);
+                        }
+
+                        // 特殊スキル: 阿蘇の神威 (毎ターンHPを5回復)
+                        if self.units[i].skill.contains("阿蘇の神威") || self.units[i].skill.contains("神威の祈祷") {
+                            self.units[i].hp = (self.units[i].hp + 5).min(self.units[i].max_hp);
+                        }
+
                         // 拠点から遠い場合は自然減少
-                        if !recovered {
+                        if !at_base {
                             self.units[i].supply = (self.units[i].supply - 2).max(0);
                         }
                     }
@@ -620,11 +703,27 @@ impl GameState {
                             return;
                         }
 
-                        let terrain_cost = if self.units[selected_idx].skill.contains("山駆け") {
-                            1 // 地形無視
-                        } else {
-                            self.get_terrain_cost(target_q, target_r)
-                        };
+                        let mut terrain_cost = self.get_terrain_cost(target_q, target_r);
+                        
+                        // 特殊スキル: 山駆け (林・山岳タイルでの移動コスト無視)
+                        if self.units[selected_idx].skill.contains("山駆け") {
+                            if let Some(t_id) = self.tiles.get(&(target_q, target_r)) {
+                                if t_id == "mountain" || t_id == "forest" {
+                                    terrain_cost = 1;
+                                }
+                            }
+                        }
+
+                        // 特殊スキル: 忽那の水先案内 / 瀬戸内の制海権 (海・川タイルでの移動コストを1にする)
+                        if self.units[selected_idx].skill.contains("水先案内") || self.units[selected_idx].skill.contains("制海権") {
+                            if let Some(t_id) = self.tiles.get(&(target_q, target_r)) {
+                                if t_id == "river" || t_id == "sea" {
+                                    terrain_cost = 1;
+                                }
+                            }
+                        }
+
+                        let total_mov_cost = dist * terrain_cost;
                         let supply_cost = self.get_terrain_supply_cost(target_q, target_r) * dist;
                         
                         let mut max_mov = self.units[selected_idx].mov;
@@ -632,7 +731,7 @@ impl GameState {
                             max_mov /= 2; // 兵糧切れペナルティ
                         }
 
-                        if dist <= max_mov {
+                        if total_mov_cost <= max_mov {
                             self.units[selected_idx].q = target_q;
                             self.units[selected_idx].r = target_r;
                             self.units[selected_idx].supply = (self.units[selected_idx].supply - supply_cost).max(0);
